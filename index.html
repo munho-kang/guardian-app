@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover: 노치·홈 바 영역까지 화면을 쓰고, 안전 여백은 env()로 직접 처리 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="우리집 지킴이">
+<meta name="theme-color" content="#ffffff">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>우리집 지킴이</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#fff; --card:#f4f3f0; --line:#dddcd7;
+  --ink:#0b0b0b; --ink2:#52514e; --ink3:#8a8984;
+  --vision:#2a78d6; --vision-soft:#e3eefb;
+  --audio:#eb6834;  --audio-soft:#fdebe3;
+  --text:#1baf7a;   --text-soft:#e0f5ec;
+  --ok-bg:#ecece9; --ok-ink:#3d3c39;
+  --warn-bg:#fff1c7; --warn-ink:#6b4a00;
+  --danger:#c62828; --danger-bg:#fde4e4;
+  --st:env(safe-area-inset-top); --sb:env(safe-area-inset-bottom);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{background:var(--bg);font-family:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo",sans-serif;color:var(--ink);word-break:keep-all;-webkit-text-size-adjust:100%;
+  display:flex;flex-direction:column;height:100dvh;padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation}
+
+/* 화면(뷰) 전환 */
+.view{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;flex-direction:column;padding-bottom:16px}
+.view.on{display:flex}
+.view>*{flex-shrink:0} /* 내용이 많을 때 막대·그래프가 찌그러지지 않고 스크롤되게 */
+
+/* 공통 머리글 */
+.top{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(var(--st) + 14px) 20px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.top b{font-size:22px;font-weight:900;letter-spacing:-.02em}
+.top .room{font-size:13px;color:var(--ink2);margin-top:2px}
+.back{font-size:32px;line-height:1;font-weight:400;min-width:44px;min-height:44px;margin:-6px 0 -6px -12px}
+
+.who{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:13px;padding:3px 10px 3px 4px;border-radius:999px;background:var(--soft);color:var(--ink);white-space:nowrap}
+.who i{width:20px;height:20px;border-radius:50%;background:var(--c);color:#fff;font-style:normal;font-size:11px;display:grid;place-items:center}
+.v{--c:var(--vision);--soft:var(--vision-soft)}
+.a{--c:var(--audio);--soft:var(--audio-soft)}
+.t{--c:var(--text);--soft:var(--text-soft)}
+
+.chip{display:inline-flex;align-items:center;gap:5px;font-weight:700;font-size:14px;padding:6px 12px;border-radius:999px;white-space:nowrap}
+.chip.ok{background:var(--ok-bg);color:var(--ok-ink)}
+.chip.warn{background:var(--warn-bg);color:var(--warn-ink)}
+.chip.danger{background:var(--danger);color:#fff}
+
+.banner{background:var(--danger);color:#fff;padding:13px 20px;font-size:15px;font-weight:700;display:none;justify-content:space-between;align-items:center;width:100%;text-align:left}
+.banner.on{display:flex}
+
+.scorecard{margin:0 16px;border-radius:20px;background:var(--card);padding:16px 18px;display:flex;justify-content:space-between;align-items:center}
+.scorecard .lbl{font-size:13px;color:var(--ink2)}
+.scorecard .num{font-size:44px;font-weight:900;letter-spacing:-.02em;line-height:1.1;transition:color .3s}
+.sec{font-size:14px;font-weight:700;color:var(--ink2);padding:20px 20px 8px;display:flex;justify-content:space-between}
+.sec span+span{font-weight:400;color:var(--ink3)}
+
+/* 세 갈래 가로 막대 (기준선 0.4 의심 / 0.7 위험) */
+.hchart{position:relative;margin:4px 16px 0;padding-bottom:24px;display:flex;flex-direction:column;gap:16px}
+.hplot{position:absolute;top:10px;bottom:22px;left:56px;right:52px;pointer-events:none}
+.hgrid{position:absolute;top:0;bottom:0;border-left:1px solid #efeeea}
+.hgrid span,.hthr em{position:absolute;bottom:-18px;transform:translateX(-50%);font-size:11px;font-style:normal;white-space:nowrap;color:var(--ink3)}
+.hthr{position:absolute;top:0;bottom:0;border-left:1.5px dashed var(--ink3);z-index:2}
+.hthr em{color:var(--ink2);font-weight:700}
+.hthr.red{border-color:var(--danger)} .hthr.red em{color:var(--danger)}
+.zone{position:relative;padding-top:22px}
+.zone::before{content:"";position:absolute;top:9px;left:0;right:0;height:8px;border:2px solid var(--c);border-bottom:0;border-radius:4px 4px 0 0}
+.zone .who{position:absolute;top:0;left:10px;z-index:3;font-size:12px;padding:2px 8px 2px 3px;box-shadow:0 0 0 3px var(--bg)}
+.zone .who i{width:16px;height:16px;font-size:9.5px}
+.hrow{display:grid;grid-template-columns:48px 1fr 44px;gap:8px;align-items:center}
+.hrow b{font-size:15px}
+.track{position:relative;z-index:1;height:24px}
+.hbar{height:100%;width:0;border-radius:0 5px 5px 0;background:var(--c);transition:width .7s cubic-bezier(.3,.9,.3,1)}
+.hrow .val{font-size:17px;font-weight:900;text-align:right;font-variant-numeric:tabular-nums}
+
+/* 시간 흐름 묶음 막대 */
+.chart{position:relative;margin:0 16px;height:160px;padding:16px 50px 0 32px}
+.plot{position:relative;height:100%;display:flex;justify-content:space-around;align-items:flex-end;border-bottom:1px solid var(--line)}
+.gridl{position:absolute;left:0;right:0;border-top:1px solid #efeeea;font-size:11px;color:var(--ink3)}
+.gridl span{position:absolute;left:-30px;top:-8px;width:24px;text-align:right}
+.thr{position:absolute;left:0;right:0;border-top:1.5px dashed var(--danger);z-index:2}
+.thr em{position:absolute;right:-50px;top:-8px;width:46px;font-size:11px;line-height:1.1;font-style:normal;color:var(--danger);font-weight:700;text-align:right}
+.col{width:14%;height:100%;display:flex;align-items:flex-end;gap:2px}
+.col .bar{flex:1;border-radius:3px 3px 0 0;background:var(--c);height:0;transition:height .7s cubic-bezier(.3,.9,.3,1)}
+.txl{display:flex;justify-content:space-around;margin:6px 66px 0 48px;font-size:11px;color:var(--ink3)}
+.txl span{width:14%;text-align:center}
+.legend{display:flex;gap:14px;justify-content:center;font-size:13px;margin-top:10px}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend span::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--c)}
+
+/* 근거 카드 */
+.evid{margin:0 16px;display:flex;flex-direction:column;gap:8px}
+.ev{display:flex;align-items:center;gap:10px;border-radius:12px;background:var(--soft);padding:12px 12px;font-size:15px;border-left:5px solid var(--c)}
+.ev b{width:40px;flex:none}
+.ev span{flex:1;color:var(--ink2)}
+.ev strong{font-size:17px;font-variant-numeric:tabular-nums}
+.ev .who{flex:none;font-size:11px;padding:2px 7px 2px 2px;background:#fff}
+.ev .who i{width:15px;height:15px;font-size:9px}
+
+.actions{position:sticky;bottom:0;display:flex;gap:8px;padding:12px 16px 4px;background:linear-gradient(transparent,var(--bg) 14px);margin-top:auto}
+.actions button{flex:1;min-height:52px;border-radius:14px;font-size:16px;font-weight:700;background:var(--card)}
+.actions .sos{background:var(--danger);color:#fff}
+.actions .done{opacity:.45}
+
+.privacy{margin:14px 16px 0;font-size:13px;color:var(--ink2);background:var(--card);border-radius:12px;padding:10px 12px}
+.updated{font-size:12px;color:var(--ink3);text-align:center;margin-top:10px;font-variant-numeric:tabular-nums}
+
+/* 시연용 상황 바꾸기 */
+.demo{margin:18px 16px 0;border:1.5px dashed var(--line);border-radius:16px;padding:12px}
+.demo .lbl{font-size:12px;color:var(--ink3);font-weight:700;margin-bottom:8px}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;min-height:44px;border-radius:12px;border:2px solid var(--line);font-size:14px;font-weight:700}
+.seg button.sel{border-color:var(--ink);background:var(--ink);color:#fff}
+.demo p{font-size:14px;color:var(--ink2);line-height:1.55;margin-top:10px}
+
+/* 알림 기록 목록 */
+.list{display:flex;flex-direction:column;gap:10px;margin:4px 16px 0}
+.rec{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border-radius:16px;background:var(--card);padding:14px 16px;border-left:6px solid var(--ink3);min-height:72px}
+.rec.danger{border-color:var(--danger)} .rec.warn{border-color:#e0a800}
+.rec div{flex:1}
+.rec b{font-size:16px;display:block}
+.rec small{font-size:13px;color:var(--ink2)}
+.rec .n{font-size:24px;font-weight:900;font-variant-numeric:tabular-nums}
+.rec.danger .n{color:var(--danger)}
+.rec .new{font-size:11px;font-weight:700;color:#fff;background:var(--danger);border-radius:999px;padding:2px 7px;margin-left:6px;vertical-align:2px}
+.empty{text-align:center;color:var(--ink3);padding:60px 0;font-size:15px}
+
+/* 설정 */
+.group{margin:0 16px;border-radius:16px;background:var(--card);overflow:hidden}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;font-size:15px;min-height:52px}
+.row+.row{border-top:1px solid var(--line)}
+.row span{color:var(--ink2);font-size:14px;text-align:right}
+.row input{font:inherit;font-size:16px;border:0;background:#fff;border-radius:10px;padding:8px 10px;width:60%;text-align:right}
+.team{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px}
+.danger-txt{color:var(--danger);font-weight:700;width:100%;text-align:left}
+.foot{font-size:12px;color:var(--ink3);text-align:center;margin:18px 16px 0;line-height:1.6}
+
+/* 아래 탭 */
+.tabbar{flex:none;display:flex;border-top:1px solid var(--line);background:var(--bg);padding-bottom:var(--sb)}
+.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 6px;font-size:12px;color:var(--ink3);position:relative}
+.tabbar svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tabbar .on{color:var(--ink);font-weight:700}
+.tabbar .dot{position:absolute;top:6px;left:calc(50% + 8px);width:9px;height:9px;border-radius:50%;background:var(--danger);display:none}
+.tabbar .dot.on{display:block}
+</style>
+</head>
+<body>
+
+<!-- ① 실시간 -->
+<main class="view on" id="v-live">
+  <div class="top"><div><b>우리집 지킴이</b><div class="room">거실 카메라 · 5초마다 갱신</div></div><span class="chip ok" id="liveChip">✓ 정상</span></div>
+  <button class="banner" id="liveBanner"><span>⚠ 위험 상황이 감지됐어요</span><span>확인 ›</span></button>
+  <div class="scorecard" style="margin-top:4px"><div><div class="lbl">종합 위험 점수</div><div class="num" id="liveNum">0.00</div></div><div class="lbl" style="text-align:right">세 갈래를<br>합친 값</div></div>
+  <div class="sec"><span>갈래별 위험율</span><span>지금 이 순간</span></div>
+  <div class="hchart" id="liveChart"></div>
+  <div class="privacy">🔒 원본 영상은 집 안 기기에만 저장돼요</div>
+  <div class="updated" id="updated"></div>
+  <div class="demo">
+    <div class="lbl">시연용 · 상황 바꿔 보기 (예시값)</div>
+    <div class="seg" id="seg"><button data-s="normal" class="sel">평상시</button><button data-s="tv">TV 액션 영화</button><button data-s="danger">실제 다툼</button></div>
+    <p id="fuseMsg"></p>
+  </div>
+</main>
+
+<!-- ② 알림 기록 -->
+<main class="view" id="v-log">
+  <div class="top"><div><b>알림 기록</b><div class="room">의심은 조용히 기록, 위험은 즉시 알림</div></div></div>
+  <div class="list" id="logList"></div>
+</main>
+
+<!-- ②-1 알림 상세 (기록에서 하나를 열었을 때) -->
+<main class="view" id="v-detail">
+  <div class="top"><div style="display:flex;align-items:center"><button class="back" id="backBtn" aria-label="뒤로">‹</button><div><b id="dTitle">위험 알림</b><div class="room" id="dRoom"></div></div></div><span class="chip" id="dChip"></span></div>
+  <div class="scorecard"><div><div class="lbl">종합 위험 점수</div><div class="num" id="dNum"></div></div><div class="lbl" style="text-align:right" id="dThr"></div></div>
+  <div class="sec"><span>갈래별 위험율</span><span>감지 시점</span></div>
+  <div class="hchart" id="alertChart"></div>
+  <div class="sec"><span>최근 30초 위험율 변화</span><span>5초 단위</span></div>
+  <div class="chart" id="timeChart"></div>
+  <div class="txl" id="timeLbl"></div>
+  <div class="legend"><span class="v">비전</span><span class="a">음성</span><span class="t">텍스트</span></div>
+  <div class="sec"><span>무엇을 봤나요?</span></div>
+  <div class="evid" id="evid"></div>
+  <div class="actions"><button id="okBtn">괜찮아요</button><button id="callBtn">전화하기</button><button class="sos" id="sosBtn">112 신고</button></div>
+</main>
+
+<!-- ③ 설정 -->
+<main class="view" id="v-set">
+  <div class="top"><div><b>설정</b></div></div>
+  <div class="sec"><span>전화하기 버튼</span></div>
+  <div class="group"><label class="row">집·가족 번호<input type="tel" id="phone" placeholder="010-0000-0000" autocomplete="tel"></label></div>
+  <div class="sec"><span>알림 기준</span></div>
+  <div class="group">
+    <div class="row"><b class="chip warn">● 의심</b><span>종합 0.4 이상 · 조용히 기록</span></div>
+    <div class="row"><b class="chip danger">▲ 위험</b><span>종합 0.7 이상 · 즉시 알림</span></div>
+  </div>
+  <div class="sec"><span>세 갈래와 담당</span></div>
+  <div class="group"><div class="team">
+    <span class="who v"><i>문</i>비전 · 문호</span><span class="who a"><i>은</i>음성 · 은빈</span><span class="who t"><i>혜</i>텍스트 · 혜영</span>
+  </div></div>
+  <div class="sec"><span>데이터</span></div>
+  <div class="group"><button class="row danger-txt" id="resetBtn">알림 기록 초기화</button></div>
+  <p class="foot">🔒 원본 영상·소리는 집 안 기기에서만 처리하고<br>앱에는 위험율 숫자만 전달돼요.<br>캡스톤디자인 · 지도 김도현 교수님</p>
+</main>
+
+<nav class="tabbar" id="tabbar">
+  <button data-tab="live" class="on"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>실시간</button>
+  <button data-tab="log"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>알림 기록<i class="dot" id="logDot"></i></button>
+  <button data-tab="set"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>설정</button>
+</nav>
+
+<script>
+// ---------- 예시 데이터 (실측값 아님, 발표자료와 같은 값) ----------
+const S = {
+  normal:{v:.08,a:.12,t:.05,f:.09},
+  tv:    {v:.10,a:.78,t:.35,f:.41},
+  danger:{v:.81,a:.82,t:.74,f:.86},
+};
+const EVID = {
+  normal:{v:'특별한 움직임 없음', a:'생활 소음', t:'일상 대화'},
+  tv:    {v:'큰 움직임 없음', a:'폭발음·고함 (TV 소리 추정)', t:'영화 대사로 보이는 말'},
+  danger:{v:'밀치는 동작', a:'비명·충격음', t:'“하지 마!”'},
+};
+const MSG = {
+  normal:'세 막대 모두 기준선 아래 → <b>정상</b>. 알림 없이 조용히 지켜봅니다.',
+  tv:'<b>음성만</b> 높고 비전·텍스트는 낮음 → 종합 점수는 <b>의심</b>에 그침. TV 소리로 인한 헛알림을 막아요.',
+  danger:'<b>세 막대가 모두</b> 위험선 위 → 종합 <b>위험</b>. 보호자에게 즉시 알림이 갑니다.',
+};
+const ROW = {v:['비전','문','문호'], a:['음성','은','은빈'], t:['텍스트','혜','혜영']};
+const K = ['v','a','t'];
+const LV = f => f>=.7?2:f>=.4?1:0;
+const LVCLS = ['ok','warn','danger'], LVTXT = ['✓ 정상','● 의심','▲ 위험'];
+const $ = id => document.getElementById(id);
+const clamp = x => Math.round(Math.min(1,Math.max(0,x))*100)/100;
+const hms = t => new Date(t).toTimeString().slice(0,8);
+const when = t => new Date(t).toLocaleString('ko-KR',{month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
+
+// 저장 (사파리 개인정보 보호 모드 등에서 막혀도 앱은 동작하게)
+const load = (k,d) => { try{ return JSON.parse(localStorage.getItem(k)) ?? d }catch(e){ return d } };
+const save = (k,v) => { try{ localStorage.setItem(k, JSON.stringify(v)) }catch(e){} };
+
+// ---------- 가로 막대 그래프 ----------
+function chart(el){
+  el.innerHTML = '<div class="hplot">' +
+    [0,.5,1].map(g=>`<div class="hgrid" style="left:${g*100}%">${g===.5?'':`<span>${g}</span>`}</div>`).join('') +
+    '<div class="hthr" style="left:40%"><em>의심 0.4</em></div><div class="hthr red" style="left:70%"><em>위험 0.7</em></div></div>' +
+    K.map(k=>{const [lbl,ini,who]=ROW[k];
+      return `<div class="zone ${k}" data-k="${k}"><span class="who ${k}"><i>${ini}</i>${who}</span>`+
+        `<div class="hrow"><b>${lbl}</b><div class="track"><div class="hbar"></div></div><span class="val"></span></div></div>`}).join('');
+}
+function setBars(el, s){
+  el.querySelectorAll('.zone').forEach(z=>{
+    const x = s[z.dataset.k];
+    z.querySelector('.hbar').style.width = x*100+'%';
+    z.querySelector('.val').textContent = x.toFixed(2);
+  });
+}
+const later = fn => requestAnimationFrame(()=>requestAnimationFrame(fn)); // 막대가 0에서 자라나게
+
+// ---------- 알림 기록 ----------
+function mkRec(time, s, sc, hist, done){
+  return {id:time, time, level:LV(s.f), f:s.f, v:s.v, a:s.a, t:s.t, hist, ev:EVID[sc], done};
+}
+function seed(){ // 처음 열었을 때 보이는 예시 기록 2건
+  const n = Date.now(), H = (end,T) => T.v.map((_,i)=>({time:end-(5-i)*5000, v:T.v[i], a:T.a[i], t:T.t[i]}));
+  const t1 = n-2*3600e3, t2 = n-5*3600e3;
+  return [
+    mkRec(t1, S.danger, 'danger', H(t1,{v:[.10,.12,.35,.78,.81,.62],a:[.15,.20,.55,.82,.79,.40],t:[.05,.10,.40,.74,.70,.30]}), true),
+    mkRec(t2, S.tv, 'tv', H(t2,{v:[.08,.09,.10,.11,.10,.10],a:[.20,.45,.70,.78,.76,.78],t:[.05,.15,.30,.35,.33,.35]}), true),
+  ];
+}
+let recs = load('recs', null) || seed();
+function renderLog(){
+  $('logList').innerHTML = recs.length ? recs.map(r=>
+    `<button class="rec ${LVCLS[r.level]}" data-id="${r.id}"><div>`+
+    `<b>${r.level===2?'위험 상황':'의심 상황'}${r.done?'':'<span class="new">확인 전</span>'}</b>`+
+    `<small>${when(r.time)} · 거실${r.level===1?' · 조용히 기록':''}</small></div>`+
+    `<span class="n">${r.f.toFixed(2)}</span></button>`).join('')
+    : '<p class="empty">아직 기록이 없어요</p>';
+  const unseen = recs.some(r=>r.level===2 && !r.done);
+  $('logDot').classList.toggle('on', unseen);
+  $('liveBanner').classList.toggle('on', unseen);
+}
+function addRec(r){ recs.unshift(r); recs = recs.slice(0,50); save('recs', recs); renderLog(); }
+
+// ---------- 알림 상세 ----------
+let cur = null;
+chart($('alertChart'));
+function openRec(r){
+  cur = r; show('detail');
+  $('dTitle').textContent = r.level===2 ? '위험 알림' : '의심 기록';
+  $('dRoom').textContent = `거실 · ${hms(r.hist[0].time)} ~ ${hms(r.time)}`;
+  $('dChip').className = 'chip '+LVCLS[r.level]; $('dChip').textContent = LVTXT[r.level];
+  $('dNum').textContent = r.f.toFixed(2);
+  $('dNum').style.color = r.level===2 ? 'var(--danger)' : '';
+  $('dThr').innerHTML = r.level===2 ? '기준 0.7<br>초과' : '기준 0.4 이상<br>0.7 미만';
+  $('okBtn').textContent = r.done ? '확인함 ✓' : '괜찮아요';
+  $('okBtn').classList.toggle('done', r.done);
+
+  const el = $('alertChart'); el.querySelectorAll('.hbar').forEach(b=>b.style.width=0);
+  $('timeChart').innerHTML = '<div class="plot">' +
+    [0,.5,1].map(g=>`<div class="gridl" style="bottom:${g*100}%"><span>${g}</span></div>`).join('') +
+    '<div class="thr" style="bottom:70%"><em>위험 0.7</em></div>' +
+    r.hist.map(h=>`<div class="col">${K.map(k=>`<div class="bar ${k}" data-h="${h[k]}"></div>`).join('')}</div>`).join('') + '</div>';
+  $('timeLbl').innerHTML = r.hist.map(h=>`<span>:${String(new Date(h.time).getSeconds()).padStart(2,'0')}</span>`).join('');
+  $('evid').innerHTML = K.map(k=>`<div class="ev ${k}"><b>${k==='t'?'말':ROW[k][0]}</b><span>${r.ev[k]}</span><strong>${r[k].toFixed(2)}</strong><span class="who ${k}"><i>${ROW[k][1]}</i>${ROW[k][2]}</span></div>`).join('');
+  $('v-detail').scrollTop = 0;
+  later(()=>{ setBars(el, r); $('timeChart').querySelectorAll('.bar').forEach(b=>b.style.height=b.dataset.h*100+'%'); });
+}
+$('logList').onclick = e => { const b = e.target.closest('.rec'); if(b) openRec(recs.find(r=>r.id==b.dataset.id)); };
+$('backBtn').onclick = () => show('log');
+$('okBtn').onclick = () => { cur.done = true; save('recs', recs); renderLog(); show('log'); };
+$('callBtn').onclick = () => {
+  const p = $('phone').value.replace(/[^0-9+]/g,'');
+  if(!p){ alert('설정에서 전화할 번호를 먼저 넣어 주세요.'); show('set'); $('phone').focus(); return; }
+  location.href = 'tel:'+p;
+};
+$('sosBtn').onclick = () => { if(confirm('112에 실제로 전화를 겁니다.\n계속할까요?')) location.href = 'tel:112'; };
+
+// ---------- 실시간 화면 ----------
+// 지금은 예시값에 작은 흔들림을 더해 5초마다 갱신.
+// 나중에 Jetson 결과를 받으면 tick() 안의 r만 실제 값으로 바꾸면 됨.
+let scene = 'normal', prevLv = 0, hist = [];
+chart($('liveChart'));
+function tick(){
+  const b = S[scene], j = () => (Math.random()-.5)*.06;
+  const r = {time:Date.now(), v:clamp(b.v+j()), a:clamp(b.a+j()), t:clamp(b.t+j())};
+  const f = clamp(b.f+j()); r.f = LV(f)===LV(b.f) ? f : b.f; // 흔들림 때문에 단계가 바뀌지 않게
+  hist = [...hist.slice(-5), r];
+
+  setBars($('liveChart'), r);
+  const lv = LV(r.f);
+  $('liveNum').textContent = r.f.toFixed(2);
+  $('liveNum').style.color = lv===2 ? 'var(--danger)' : '';
+  $('liveChip').className = 'chip '+LVCLS[lv]; $('liveChip').textContent = LVTXT[lv];
+  $('updated').textContent = hms(r.time)+' 갱신';
+
+  if(lv > prevLv) addRec(mkRec(r.time, r, scene, hist.map(({time,v,a,t})=>({time,v,a,t})), false));
+  prevLv = lv;
+}
+function setScene(s){
+  scene = s;
+  $('fuseMsg').innerHTML = MSG[s];
+  document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('sel', b.dataset.s===s));
+  tick();
+}
+$('seg').onclick = e => { const b = e.target.closest('button'); if(b) setScene(b.dataset.s); };
+$('liveBanner').onclick = () => { const r = recs.find(r=>r.level===2 && !r.done); if(r){ tab('log'); openRec(r); } };
+
+// ---------- 설정 ----------
+$('phone').value = load('phone', '');
+$('phone').oninput = e => save('phone', e.target.value);
+$('resetBtn').onclick = () => { if(confirm('알림 기록을 처음 예시 상태로 되돌릴까요?')){ recs = seed(); save('recs', recs); renderLog(); } };
+
+// ---------- 화면 전환 ----------
+function show(v){ document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on', x.id==='v-'+v)); }
+function tab(t){
+  document.querySelectorAll('#tabbar button').forEach(b=>b.classList.toggle('on', b.dataset.tab===t));
+  show(t);
+  if(t==='live'){ $('liveChart').querySelectorAll('.hbar').forEach(b=>b.style.width=0); later(tick); }
+}
+$('tabbar').onclick = e => { const b = e.target.closest('button'); if(b) tab(b.dataset.tab); };
+
+renderLog();
+setScene('normal');
+setInterval(tick, 5000);
+</script>
+</body>
+</html>
